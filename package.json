@@ -1,0 +1,38 @@
+{
+  "name": "gen",
+  "version": "1.0.0",
+  "licenses": [
+    {
+      "type": "BSD",
+      "url": "https://github.com/yahoo/xss-filters/blob/master/LICENSE"
+    }
+  ],
+  "description": "PGP key gen",
+  "author": "Ryuji Ishiguro <r2ishiguro@gmail.com>",
+  "contributors": [
+    {
+      "name": "Ryuji Ishiguro",
+      "email": "r2ishiguro@gmail.com"
+    }
+  ],
+  "main": "gen_ie.js",
+  "scripts": {
+    "test": "grunt test"
+  },
+  "keywords": [
+    "PGP"
+  ],
+  "devDependencies": {
+    "grunt": "^1.0.1",
+    "grunt-contrib-concat": "^1.0.1",
+    "grunt-contrib-jshint": "^0.10.0",
+    "grunt-contrib-nodeunit": "~0.4.1",
+    "grunt-contrib-qunit": "^2.0.0",
+    "grunt-contrib-uglify": "^0.5.1",
+    "grunt-contrib-watch": "^1.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/r2ishiguro/thkp.git"
+  }
+}
