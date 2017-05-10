@@ -14,11 +14,13 @@ function b64(b) {
 	}
 }
 
-generateKey("foo <foo@example.com>")
-	.then(function(keys) {
-		console.log("pub:");
-		b64(keys.pub);
-		console.log("priv:");
-		b64(keys.priv);
-	})
-	.catch(function(e) {console.log("generateKey: error:", e)})
+(function() {
+	generateKey("foo <foo@example.com>")
+		.then(function(keys) {
+			console.log("pub:");
+			b64(keys.pub);
+			console.log("priv:");
+			b64(keys.priv);
+		})
+		.catch(function(e) {console.log("generateKey: error:", e)})
+})()
