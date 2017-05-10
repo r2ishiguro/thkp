@@ -22,7 +22,7 @@ module.exports = function(grunt) {
       }
     },
     qunit: {
-      files: ['test/**/*.html']
+      files: ['gen_ie.html']
     },
     jshint: {
       files: ['gen_ie.js'],
@@ -62,7 +62,7 @@ module.exports = function(grunt) {
   grunt.loadNpmTasks('grunt-contrib-concat');
   grunt.loadNpmTasks('grunt-karma');
 
-  grunt.registerTask('test', ['jshint', 'qunit', 'karma.ci']);
+  grunt.registerTask('test', ['jshint', 'qunit', 'karma:ci']);
 
   grunt.registerTask('default', ['jshint', 'qunit', 'concat', 'uglify']);
 
