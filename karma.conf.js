@@ -22,6 +22,7 @@ module.exports = function(config) {
     //   browserName: 'internet explorer',
     //   version: '7'
     // },
+/*
     'SL_InternetExplorer8': {
       base: 'SauceLabs',
       browserName: 'internet explorer',
@@ -37,6 +38,7 @@ module.exports = function(config) {
       browserName: 'internet explorer',
       version: '10'
     },
+*/
     'SL_InternetExplorerLatest': {
       base: 'SauceLabs',
       browserName: 'internet explorer'
@@ -102,8 +104,10 @@ module.exports = function(config) {
 
     // list of files / patterns to load in the browser
     files: [
-      'node_modules/expect.js/index.js',
-      'gen_ie.js'
+	    'gen_ie.js',
+	    'npo.js',
+	    'sha1.js',
+	    'gen_ie_test.js'
     ],
 
 
