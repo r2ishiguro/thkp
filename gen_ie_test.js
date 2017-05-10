@@ -1,7 +1,7 @@
 function b64(b) {
-	let a = new Uint8Array(b);
-	let str = [], s = "", j = 0;
-	for (let i = 0; i < a.length; i++) {
+	var a = new Uint8Array(b);
+	var str = [], s = "", j = 0;
+	for (var i = 0; i < a.length; i++) {
 		str[j++] = String.fromCharCode(a[i]);
 		if ((j % 60) == 0) {
 			console.log(btoa(str.join('')))

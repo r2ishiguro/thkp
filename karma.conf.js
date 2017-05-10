@@ -7,11 +7,13 @@ module.exports = function(config) {
 
   // Browsers to run on Sauce Labs
   var customLaunchers = {
+/*
     'SL_Chrome': {
       base: 'SauceLabs',
       browserName: 'chrome',
       version: '31'
     },
+*/
     'SL_ChromeLatest': {
       base: 'SauceLabs',
       browserName: 'chrome'
@@ -38,7 +40,6 @@ module.exports = function(config) {
       browserName: 'internet explorer',
       version: '10'
     },
-*/
     'SL_InternetExplorerLatest': {
       base: 'SauceLabs',
       browserName: 'internet explorer'
@@ -87,6 +88,7 @@ module.exports = function(config) {
       base: 'SauceLabs',
       browserName: 'Android'
     }
+*/
   };
 
   var jobId = process.env.TRAVIS_JOB_NUMBER || new Date().getTime();
