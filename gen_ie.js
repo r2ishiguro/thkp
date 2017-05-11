@@ -1,13 +1,3 @@
-var opt = {
-	name: 'RSASSA-PKCS1-v1_5',
-	modulusLength: 2048,
-	publicExponent: new Uint8Array([1,0,1]),
-	hash: {
-		name: 'SHA-256' // not required for actual RSA keys, but for crypto api 'sign' and 'verify'
-	}
-};
-var usage = ['sign', 'verify'];
-
 var TAG_SIGNATURE = 2;
 var TAG_PUBLIC_KEY = 6;
 var TAG_PUBLIC_SUB_KEY = 14;
@@ -86,7 +76,7 @@ if (window.msCrypto) {
 			return this._call("sign", arguments);
 		},
 		digest: function(algo, data) {
-			if (algo == 'SHA-1-') {
+			if (algo == 'SHA-1') {
 				return new Promise(function(resolve, reject) {
 					resolve(window.sha1.arrayBuffer(data));
 				});
@@ -97,7 +87,41 @@ if (window.msCrypto) {
 	};
 }
 else {
-	var wc = window.crypto.webkitSubtle || window.crypto.subtle;
+	var _wc = window.crypto.webkitSubtle || window.crypto.subtle;
+	var digest_org = _wc.digest;
+	_wc.digest = function(algo, data) {
+		return digest_org.call(_wc, algo, data)
+			.then(function(h) {return h;})
+			.catch(function(e) {
+				if (algo == 'SHA-1') {
+					// fall back to a JS version of SHA1 for Edge
+					return window.sha1.arrayBuffer(data);
+				}
+				throw e;
+			})
+	};
+	var wc = {
+		_call: function(f, args) {
+			return _wc[f].apply(_wc, args)
+				.then(function(res) {return res;})
+				.catch(function(e) {console.log(f + " caused error:", e); throw e;});
+		},
+		generateKey: function(algo, extractable, usage) {
+			return this._call("generateKey", arguments);
+		},
+		exportKey: function(algo, key) {
+			return this._call("exportKey", arguments);
+		},
+		sign: function(algo, priv, target) {
+			return this._call("sign", arguments);
+		},
+		digest: function(algo, data) {
+			return this._call("digest", arguments);
+		},
+		importKey: function(algo, data, opt, exportable, usage) {
+			return this._call("importKey", arguments);
+		},
+	};
 }
 
 function Stream() {
@@ -325,7 +349,7 @@ function sign(key, stype, data)
 		.then(function(h) {
 			// hashed just for the first 16 bits digest, webcrypt sign() calculates hash on its own
 			p.puts(h.slice(0, 2));
-			return wc.sign({name: opt.name, hash: opt.hash.name}, key.keypair.privateKey, tbs);
+			return wc.sign({name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256'}, key.signingKey, tbs);
 		})
 		.then(function(sig) {
 			p.putmpi(sig);
@@ -335,15 +359,66 @@ function sign(key, stype, data)
 		});
 }
 
-function processKey(tag, keypair)
+function _generateKey(tag, opt, usage)
 {
-	return wc.exportKey('jwk', keypair.privateKey)
-		.then(function(jwk) {
-			if (jwk instanceof ArrayBuffer)
-				jwk = JSON.parse(String.fromCharCode.apply(null, new Uint8Array(jwk)));
-			var pub = packetize(tag, jwk);
-			var priv = packetize(tag == TAG_PUBLIC_KEY ? TAG_SECRET_KEY : TAG_SECRET_SUB_KEY, jwk);
-			return {tag: tag, keypair: keypair, pub: pub, priv: priv};
+	return wc.generateKey(opt, true, usage)
+		.then(function(keypair) {
+			return wc.exportKey('jwk', keypair.privateKey)
+				.then(function(jwk) {
+					if (jwk instanceof ArrayBuffer)
+						jwk = JSON.parse(String.fromCharCode.apply(null, new Uint8Array(jwk)));
+					return {
+						tag: tag,
+						pub: packetize(tag, jwk),
+						priv: packetize(tag == TAG_PUBLIC_KEY ? TAG_SECRET_KEY : TAG_SECRET_SUB_KEY, jwk),
+						signingKey: keypair.privateKey,
+						jwk: jwk,
+					};
+				})
+		})
+}
+
+function generateKey(tag)
+{
+	var opt = {
+		name: 'RSASSA-PKCS1-v1_5',
+		modulusLength: 2048,
+		publicExponent: new Uint8Array([1,0,1]),
+		hash: {
+			name: 'SHA-256' // not required for actual RSA keys, but for crypto api 'sign' and 'verify'
+		}
+	};
+	var usage = ['sign', 'verify'];
+	var opt2 = {
+		name: 'RSA-OAEP',
+		modulusLength: 2048,
+		publicExponent: new Uint8Array([1,0,1]),
+		hash: {
+			name: 'SHA-256' // have to be 'SHA-1' for Safari 10...
+		}
+	};
+	var usage2 = ['encrypt', 'decrypt'];
+
+	return _generateKey(tag, opt, usage)
+//		.then(function (key) {return key;})
+		.catch(function(e) {
+			// fallback for Safari 9
+			return _generateKey(tag, opt2, usage2)
+				.then(function(key) {
+					// replace the signingKey with a re-generated `encryption' key
+					var jwk = key.jwk;
+					jwk.alg = undefined;	// workaround
+					jwk.key_ops = usage;
+					var s = JSON.stringify(jwk);
+					var raw = new Uint8Array(s.length);
+					for (var i = 0; i < s.length; i++)
+						raw[i] = s.charCodeAt(i);
+					return wc.importKey('jwk', raw, opt, false, usage)
+						.then(function(privKey) {
+							key.signingKey = privKey;
+							return key;
+						});
+				});
 		});
 }
 
@@ -356,18 +431,16 @@ function fingerprint(key)
 		});
 }
 
-function generateKey(userID)
+function generatePGPKeys(userID)
 {
 	var uid = packetize(TAG_USER_ID, userID);
 	var primkey, subkey, primsig, subsig;
 	// primary key
-	return wc.generateKey(opt, true, usage)
-		.then(function(keypair) {return processKey(TAG_PUBLIC_KEY, keypair);})
+	return generateKey(TAG_PUBLIC_KEY)
 		.then(function(key) {return fingerprint(key);})
 		.then(function(key) {return sign(primkey = key, SIGTYPE_GENERIC_CERT, [key.pub, uid]);})
 	// sub key
-		.then(function(sig) {primsig = sig; return wc.generateKey(opt, true, usage);})
-		.then(function(keypair) {return processKey(TAG_PUBLIC_SUB_KEY, keypair);})
+		.then(function(sig) {primsig = sig; return generateKey(TAG_PUBLIC_SUB_KEY);})
 		.then(function(key) {subkey = key; return sign(primkey, SIGTYPE_SUBKEY_BINDING, [primkey.pub, key.pub]);})
 		.then(function(sig) {
 			subsig = sig;

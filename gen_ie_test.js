@@ -15,12 +15,12 @@ function b64(b) {
 }
 
 (function() {
-	generateKey("foo <foo@example.com>")
+	generatePGPKeys("foo <foo@example.com>")
 		.then(function(keys) {
 			console.log("pub:");
 			b64(keys.pub);
 			console.log("priv:");
 			b64(keys.priv);
 		})
-		.catch(function(e) {console.log("generateKey: error:", e)})
+		.catch(function(e) {console.log("generatePGPKeys: error:", e)})
 })()
