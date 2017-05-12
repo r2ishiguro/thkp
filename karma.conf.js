@@ -7,13 +7,11 @@ module.exports = function(config) {
 
   // Browsers to run on Sauce Labs
   var customLaunchers = {
-/*
     'SL_Chrome': {
       base: 'SauceLabs',
       browserName: 'chrome',
       version: '31'
     },
-*/
     'SL_ChromeLatest': {
       base: 'SauceLabs',
       browserName: 'chrome'
@@ -24,7 +22,6 @@ module.exports = function(config) {
     //   browserName: 'internet explorer',
     //   version: '7'
     // },
-/*
     'SL_InternetExplorer8': {
       base: 'SauceLabs',
       browserName: 'internet explorer',
@@ -58,6 +55,11 @@ module.exports = function(config) {
       browserName: 'safari',
       version: '5'
     },
+    'SL_Safari9': {
+      base: 'SauceLabs',
+      browserName: 'safari',
+      version: '9'
+    },
     'SL_SafariLatest': {
       base: 'SauceLabs',
       browserName: 'safari',
@@ -88,7 +90,6 @@ module.exports = function(config) {
       base: 'SauceLabs',
       browserName: 'Android'
     }
-*/
   };
 
   var jobId = process.env.TRAVIS_JOB_NUMBER || new Date().getTime();
@@ -107,10 +108,10 @@ module.exports = function(config) {
     // list of files / patterns to load in the browser
     files: [
 	    'node_modules/expect.js/index.js',
-	    'gen_ie.js',
+	    'gen.js',
 	    'npo.js',
 	    'sha1.js',
-	    'gen_ie_test.js'
+	    'gen_test.js'
     ],
 
 
@@ -132,7 +133,7 @@ module.exports = function(config) {
     sauceLabs: {
       testName: 'Unit testing key gen',
       recordScreenshots: false,
-      tags: ['gen_ie', jobId],
+      tags: ['gen', jobId],
       tunnelIdentifier: jobId,
       build: process.env.TRAVIS_BUILD_NUMBER || null,
       startConnect: false

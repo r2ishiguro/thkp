@@ -15,7 +15,7 @@
       "email": "r2ishiguro@gmail.com"
     }
   ],
-  "main": "gen_ie.js",
+  "main": "gen.js",
   "scripts": {
     "test": "grunt test"
   },

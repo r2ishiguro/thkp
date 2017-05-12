@@ -7,7 +7,7 @@ module.exports = function(grunt) {
         separator: ';'
       },
       dist: {
-        src: ['gen_ie.js'],
+        src: ['gen.js'],
         dest: 'dist/<%= pkg.name %>.js'
       }
     },
@@ -22,10 +22,10 @@ module.exports = function(grunt) {
       }
     },
     qunit: {
-      files: ['gen_ie.html']
+      files: ['gen.html']
     },
     jshint: {
-      files: ['gen_ie.js'],
+      files: ['gen.js'],
       options: {
         // options here to override JSHint defaults
 	      reporterOutput: "",
