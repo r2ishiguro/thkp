@@ -1,366 +1,97 @@
 /*
- * [js-sha1]{@link https://github.com/emn178/js-sha1}
- *
- * @version 0.4.1
- * @author Chen, Yi-Cyuan [emn178@gmail.com]
- * @copyright Chen, Yi-Cyuan 2014-2016
- * @license MIT
- */
-/*jslint bitwise: true */
-(function() {
-  'use strict';
+Copyright è¢Ì 2009, Jeff Mott. All rights reserved.
+Copyright è¢Ì 2011, Paul Vorbach. All rights reserved.
 
-  var root = typeof window === 'object' ? window : {};
-  var NODE_JS = !root.JS_SHA1_NO_NODE_JS && typeof process === 'object' && process.versions && process.versions.node;
-  if (NODE_JS) {
-    root = global;
-  }
-  var COMMON_JS = !root.JS_SHA1_NO_COMMON_JS && typeof module === 'object' && module.exports;
-  var AMD = typeof define === 'function' && define.amd;
-  var HEX_CHARS = '0123456789abcdef'.split('');
-  var EXTRA = [-2147483648, 8388608, 32768, 128];
-  var SHIFT = [24, 16, 8, 0];
-  var OUTPUT_TYPES = ['hex', 'array', 'digest', 'arrayBuffer'];
+All rights reserved.
 
-  var blocks = [];
+Redistribution and use in source and binary forms, with or without modification,
+are permitted provided that the following conditions are met:
 
-  var createOutputMethod = function (outputType) {
-    return function (message) {
-      return new Sha1(true).update(message)[outputType]();
-    };
-  };
+* Redistributions of source code must retain the above copyright notice, this
+  list of conditions and the following disclaimer.
+* Redistributions in binary form must reproduce the above copyright notice, this
+  list of conditions and the following disclaimer in the documentation and/or
+  other materials provided with the distribution.
+* Neither the name Crypto-JS nor the names of its contributors may be used to
+  endorse or promote products derived from this software without specific prior
+  written permission.
 
-  var createMethod = function () {
-    var method = createOutputMethod('hex');
-    if (NODE_JS) {
-      method = nodeWrap(method);
-    }
-    method.create = function () {
-      return new Sha1();
-    };
-    method.update = function (message) {
-      return method.create().update(message);
-    };
-    for (var i = 0; i < OUTPUT_TYPES.length; ++i) {
-      var type = OUTPUT_TYPES[i];
-      method[type] = createOutputMethod(type);
-    }
-    return method;
-  };
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*/
 
-  var nodeWrap = function (method) {
-    var crypto = require('crypto');
-    var Buffer = require('buffer').Buffer;
-    var nodeMethod = function (message) {
-      if (typeof message === 'string') {
-        return crypto.createHash('sha1').update(message, 'utf8').digest('hex');
-      } else if (message.constructor === ArrayBuffer) {
-        message = new Uint8Array(message);
-      } else if (message.length === undefined) {
-        return method(message);
-      }
-      return crypto.createHash('sha1').update(new Buffer(message)).digest('hex');
-    };
-    return nodeMethod;
-  };
+// Convert a byte array to big-endian 32-bit words
+function bytesToWords(bytes) {
+	for (var words = [], i = 0, b = 0; i < bytes.length; i++, b += 8)
+		words[b >>> 5] |= bytes[i] << (24 - b % 32);
+	return words;
+}
 
-  function Sha1(sharedMemory) {
-    if (sharedMemory) {
-      blocks[0] = blocks[16] = blocks[1] = blocks[2] = blocks[3] =
-      blocks[4] = blocks[5] = blocks[6] = blocks[7] =
-      blocks[8] = blocks[9] = blocks[10] = blocks[11] =
-      blocks[12] = blocks[13] = blocks[14] = blocks[15] = 0;
-      this.blocks = blocks;
-    } else {
-      this.blocks = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-    }
+// Convert big-endian 32-bit words to a byte array
+function wordsToBytes(words) {
+	for (var bytes = [], b = 0; b < words.length * 32; b += 8)
+		bytes.push((words[b >>> 5] >>> (24 - b % 32)) & 0xFF);
+	return bytes;
+}
 
-    this.h0 = 0x67452301;
-    this.h1 = 0xEFCDAB89;
-    this.h2 = 0x98BADCFE;
-    this.h3 = 0x10325476;
-    this.h4 = 0xC3D2E1F0;
+function sha1(ab) {
+	var message = new Uint8Array(ab);
+        var m  = bytesToWords(message);
+        l  = message.length * 8,
+        w  = [],
+        H0 =  1732584193,
+        H1 = -271733879,
+        H2 = -1732584194,
+        H3 =  271733878,
+        H4 = -1009589776;
 
-    this.block = this.start = this.bytes = 0;
-    this.finalized = this.hashed = false;
-    this.first = true;
-  }
+	// Padding
+	m[l >> 5] |= 0x80 << (24 - l % 32);
+	m[((l + 64 >>> 9) << 4) + 15] = l;
 
-  Sha1.prototype.update = function (message) {
-    if (this.finalized) {
-      return;
-    }
-    var notString = typeof(message) !== 'string';
-    if (notString && message.constructor === root.ArrayBuffer) {
-      message = new Uint8Array(message);
-    }
-    var code, index = 0, i, length = message.length || 0, blocks = this.blocks;
+	for (var i = 0; i < m.length; i += 16) {
+		var a = H0,
+		    b = H1,
+		    c = H2,
+		    d = H3,
+		    e = H4;
 
-    while (index < length) {
-      if (this.hashed) {
-        this.hashed = false;
-        blocks[0] = this.block;
-        blocks[16] = blocks[1] = blocks[2] = blocks[3] =
-        blocks[4] = blocks[5] = blocks[6] = blocks[7] =
-        blocks[8] = blocks[9] = blocks[10] = blocks[11] =
-        blocks[12] = blocks[13] = blocks[14] = blocks[15] = 0;
-      }
+		for (var j = 0; j < 80; j++) {
 
-      if(notString) {
-        for (i = this.start; index < length && i < 64; ++index) {
-          blocks[i >> 2] |= message[index] << SHIFT[i++ & 3];
-        }
-      } else {
-        for (i = this.start; index < length && i < 64; ++index) {
-          code = message.charCodeAt(index);
-          if (code < 0x80) {
-            blocks[i >> 2] |= code << SHIFT[i++ & 3];
-          } else if (code < 0x800) {
-            blocks[i >> 2] |= (0xc0 | (code >> 6)) << SHIFT[i++ & 3];
-            blocks[i >> 2] |= (0x80 | (code & 0x3f)) << SHIFT[i++ & 3];
-          } else if (code < 0xd800 || code >= 0xe000) {
-            blocks[i >> 2] |= (0xe0 | (code >> 12)) << SHIFT[i++ & 3];
-            blocks[i >> 2] |= (0x80 | ((code >> 6) & 0x3f)) << SHIFT[i++ & 3];
-            blocks[i >> 2] |= (0x80 | (code & 0x3f)) << SHIFT[i++ & 3];
-          } else {
-            code = 0x10000 + (((code & 0x3ff) << 10) | (message.charCodeAt(++index) & 0x3ff));
-            blocks[i >> 2] |= (0xf0 | (code >> 18)) << SHIFT[i++ & 3];
-            blocks[i >> 2] |= (0x80 | ((code >> 12) & 0x3f)) << SHIFT[i++ & 3];
-            blocks[i >> 2] |= (0x80 | ((code >> 6) & 0x3f)) << SHIFT[i++ & 3];
-            blocks[i >> 2] |= (0x80 | (code & 0x3f)) << SHIFT[i++ & 3];
-          }
-        }
-      }
+			if (j < 16)
+				w[j] = m[i + j];
+			else {
+				var n = w[j - 3] ^ w[j - 8] ^ w[j - 14] ^ w[j - 16];
+				w[j] = (n << 1) | (n >>> 31);
+			}
 
-      this.lastByteIndex = i;
-      this.bytes += i - this.start;
-      if (i >= 64) {
-        this.block = blocks[16];
-        this.start = i - 64;
-        this.hash();
-        this.hashed = true;
-      } else {
-        this.start = i;
-      }
-    }
-    return this;
-  };
+			var t = ((H0 << 5) | (H0 >>> 27)) + H4 + (w[j] >>> 0) + (
+				j < 20 ? (H1 & H2 | ~H1 & H3) + 1518500249 :
+					j < 40 ? (H1 ^ H2 ^ H3) + 1859775393 :
+					j < 60 ? (H1 & H2 | H1 & H3 | H2 & H3) - 1894007588 :
+					(H1 ^ H2 ^ H3) - 899497514);
 
-  Sha1.prototype.finalize = function () {
-    if (this.finalized) {
-      return;
-    }
-    this.finalized = true;
-    var blocks = this.blocks, i = this.lastByteIndex;
-    blocks[16] = this.block;
-    blocks[i >> 2] |= EXTRA[i & 3];
-    this.block = blocks[16];
-    if (i >= 56) {
-      if (!this.hashed) {
-        this.hash();
-      }
-      blocks[0] = this.block;
-      blocks[16] = blocks[1] = blocks[2] = blocks[3] =
-      blocks[4] = blocks[5] = blocks[6] = blocks[7] =
-      blocks[8] = blocks[9] = blocks[10] = blocks[11] =
-      blocks[12] = blocks[13] = blocks[14] = blocks[15] = 0;
-    }
-    blocks[15] = this.bytes << 3;
-    this.hash();
-  };
+			H4 = H3;
+			H3 = H2;
+			H2 = (H1 << 30) | (H1 >>> 2);
+			H1 = H0;
+			H0 = t;
+		}
 
-  Sha1.prototype.hash = function () {
-    var a = this.h0, b = this.h1, c = this.h2, d = this.h3, e = this.h4;
-    var f, j, t, blocks = this.blocks;
+		H0 += a;
+		H1 += b;
+		H2 += c;
+		H3 += d;
+		H4 += e;
+	}
 
-    for(j = 16; j < 80; ++j) {
-      t = blocks[j - 3] ^ blocks[j - 8] ^ blocks[j - 14] ^ blocks[j - 16];
-      blocks[j] =  (t << 1) | (t >>> 31);
-    }
-
-    for(j = 0; j < 20; j += 5) {
-      f = (b & c) | ((~b) & d);
-      t = (a << 5) | (a >>> 27);
-      e = t + f + e + 1518500249 + blocks[j] << 0;
-      b = (b << 30) | (b >>> 2);
-
-      f = (a & b) | ((~a) & c);
-      t = (e << 5) | (e >>> 27);
-      d = t + f + d + 1518500249 + blocks[j + 1] << 0;
-      a = (a << 30) | (a >>> 2);
-
-      f = (e & a) | ((~e) & b);
-      t = (d << 5) | (d >>> 27);
-      c = t + f + c + 1518500249 + blocks[j + 2] << 0;
-      e = (e << 30) | (e >>> 2);
-
-      f = (d & e) | ((~d) & a);
-      t = (c << 5) | (c >>> 27);
-      b = t + f + b + 1518500249 + blocks[j + 3] << 0;
-      d = (d << 30) | (d >>> 2);
-
-      f = (c & d) | ((~c) & e);
-      t = (b << 5) | (b >>> 27);
-      a = t + f + a + 1518500249 + blocks[j + 4] << 0;
-      c = (c << 30) | (c >>> 2);
-    }
-
-    for(; j < 40; j += 5) {
-      f = b ^ c ^ d;
-      t = (a << 5) | (a >>> 27);
-      e = t + f + e + 1859775393 + blocks[j] << 0;
-      b = (b << 30) | (b >>> 2);
-
-      f = a ^ b ^ c;
-      t = (e << 5) | (e >>> 27);
-      d = t + f + d + 1859775393 + blocks[j + 1] << 0;
-      a = (a << 30) | (a >>> 2);
-
-      f = e ^ a ^ b;
-      t = (d << 5) | (d >>> 27);
-      c = t + f + c + 1859775393 + blocks[j + 2] << 0;
-      e = (e << 30) | (e >>> 2);
-
-      f = d ^ e ^ a;
-      t = (c << 5) | (c >>> 27);
-      b = t + f + b + 1859775393 + blocks[j + 3] << 0;
-      d = (d << 30) | (d >>> 2);
-
-      f = c ^ d ^ e;
-      t = (b << 5) | (b >>> 27);
-      a = t + f + a + 1859775393 + blocks[j + 4] << 0;
-      c = (c << 30) | (c >>> 2);
-    }
-
-    for(; j < 60; j += 5) {
-      f = (b & c) | (b & d) | (c & d);
-      t = (a << 5) | (a >>> 27);
-      e = t + f + e - 1894007588 + blocks[j] << 0;
-      b = (b << 30) | (b >>> 2);
-
-      f = (a & b) | (a & c) | (b & c);
-      t = (e << 5) | (e >>> 27);
-      d = t + f + d - 1894007588 + blocks[j + 1] << 0;
-      a = (a << 30) | (a >>> 2);
-
-      f = (e & a) | (e & b) | (a & b);
-      t = (d << 5) | (d >>> 27);
-      c = t + f + c - 1894007588 + blocks[j + 2] << 0;
-      e = (e << 30) | (e >>> 2);
-
-      f = (d & e) | (d & a) | (e & a);
-      t = (c << 5) | (c >>> 27);
-      b = t + f + b - 1894007588 + blocks[j + 3] << 0;
-      d = (d << 30) | (d >>> 2);
-
-      f = (c & d) | (c & e) | (d & e);
-      t = (b << 5) | (b >>> 27);
-      a = t + f + a - 1894007588 + blocks[j + 4] << 0;
-      c = (c << 30) | (c >>> 2);
-    }
-
-    for(; j < 80; j += 5) {
-      f = b ^ c ^ d;
-      t = (a << 5) | (a >>> 27);
-      e = t + f + e - 899497514 + blocks[j] << 0;
-      b = (b << 30) | (b >>> 2);
-
-      f = a ^ b ^ c;
-      t = (e << 5) | (e >>> 27);
-      d = t + f + d - 899497514 + blocks[j + 1] << 0;
-      a = (a << 30) | (a >>> 2);
-
-      f = e ^ a ^ b;
-      t = (d << 5) | (d >>> 27);
-      c = t + f + c - 899497514 + blocks[j + 2] << 0;
-      e = (e << 30) | (e >>> 2);
-
-      f = d ^ e ^ a;
-      t = (c << 5) | (c >>> 27);
-      b = t + f + b - 899497514 + blocks[j + 3] << 0;
-      d = (d << 30) | (d >>> 2);
-
-      f = c ^ d ^ e;
-      t = (b << 5) | (b >>> 27);
-      a = t + f + a - 899497514 + blocks[j + 4] << 0;
-      c = (c << 30) | (c >>> 2);
-    }
-
-    this.h0 = this.h0 + a << 0;
-    this.h1 = this.h1 + b << 0;
-    this.h2 = this.h2 + c << 0;
-    this.h3 = this.h3 + d << 0;
-    this.h4 = this.h4 + e << 0;
-  };
-
-  Sha1.prototype.hex = function () {
-    this.finalize();
-
-    var h0 = this.h0, h1 = this.h1, h2 = this.h2, h3 = this.h3, h4 = this.h4;
-
-    return HEX_CHARS[(h0 >> 28) & 0x0F] + HEX_CHARS[(h0 >> 24) & 0x0F] +
-           HEX_CHARS[(h0 >> 20) & 0x0F] + HEX_CHARS[(h0 >> 16) & 0x0F] +
-           HEX_CHARS[(h0 >> 12) & 0x0F] + HEX_CHARS[(h0 >> 8) & 0x0F] +
-           HEX_CHARS[(h0 >> 4) & 0x0F] + HEX_CHARS[h0 & 0x0F] +
-           HEX_CHARS[(h1 >> 28) & 0x0F] + HEX_CHARS[(h1 >> 24) & 0x0F] +
-           HEX_CHARS[(h1 >> 20) & 0x0F] + HEX_CHARS[(h1 >> 16) & 0x0F] +
-           HEX_CHARS[(h1 >> 12) & 0x0F] + HEX_CHARS[(h1 >> 8) & 0x0F] +
-           HEX_CHARS[(h1 >> 4) & 0x0F] + HEX_CHARS[h1 & 0x0F] +
-           HEX_CHARS[(h2 >> 28) & 0x0F] + HEX_CHARS[(h2 >> 24) & 0x0F] +
-           HEX_CHARS[(h2 >> 20) & 0x0F] + HEX_CHARS[(h2 >> 16) & 0x0F] +
-           HEX_CHARS[(h2 >> 12) & 0x0F] + HEX_CHARS[(h2 >> 8) & 0x0F] +
-           HEX_CHARS[(h2 >> 4) & 0x0F] + HEX_CHARS[h2 & 0x0F] +
-           HEX_CHARS[(h3 >> 28) & 0x0F] + HEX_CHARS[(h3 >> 24) & 0x0F] +
-           HEX_CHARS[(h3 >> 20) & 0x0F] + HEX_CHARS[(h3 >> 16) & 0x0F] +
-           HEX_CHARS[(h3 >> 12) & 0x0F] + HEX_CHARS[(h3 >> 8) & 0x0F] +
-           HEX_CHARS[(h3 >> 4) & 0x0F] + HEX_CHARS[h3 & 0x0F] +
-           HEX_CHARS[(h4 >> 28) & 0x0F] + HEX_CHARS[(h4 >> 24) & 0x0F] +
-           HEX_CHARS[(h4 >> 20) & 0x0F] + HEX_CHARS[(h4 >> 16) & 0x0F] +
-           HEX_CHARS[(h4 >> 12) & 0x0F] + HEX_CHARS[(h4 >> 8) & 0x0F] +
-           HEX_CHARS[(h4 >> 4) & 0x0F] + HEX_CHARS[h4 & 0x0F];
-  };
-
-  Sha1.prototype.toString = Sha1.prototype.hex;
-
-  Sha1.prototype.digest = function () {
-    this.finalize();
-
-    var h0 = this.h0, h1 = this.h1, h2 = this.h2, h3 = this.h3, h4 = this.h4;
-
-    return [
-      (h0 >> 24) & 0xFF, (h0 >> 16) & 0xFF, (h0 >> 8) & 0xFF, h0 & 0xFF,
-      (h1 >> 24) & 0xFF, (h1 >> 16) & 0xFF, (h1 >> 8) & 0xFF, h1 & 0xFF,
-      (h2 >> 24) & 0xFF, (h2 >> 16) & 0xFF, (h2 >> 8) & 0xFF, h2 & 0xFF,
-      (h3 >> 24) & 0xFF, (h3 >> 16) & 0xFF, (h3 >> 8) & 0xFF, h3 & 0xFF,
-      (h4 >> 24) & 0xFF, (h4 >> 16) & 0xFF, (h4 >> 8) & 0xFF, h4 & 0xFF
-    ];
-  };
-
-  Sha1.prototype.array = Sha1.prototype.digest;
-
-  Sha1.prototype.arrayBuffer = function () {
-    this.finalize();
-
-    var buffer = new ArrayBuffer(20);
-    var dataView = new DataView(buffer);
-    dataView.setUint32(0, this.h0);
-    dataView.setUint32(4, this.h1);
-    dataView.setUint32(8, this.h2);
-    dataView.setUint32(12, this.h3);
-    dataView.setUint32(16, this.h4);
-    return buffer;
-  };
-
-  var exports = createMethod();
-
-  if (COMMON_JS) {
-    module.exports = exports;
-  } else {
-    root.sha1 = exports;
-    if (AMD) {
-      define(function () {
-        return exports;
-      });
-    }
-  }
-})();
+	return (new Uint8Array(wordsToBytes([H0, H1, H2, H3, H4]))).buffer;
+}

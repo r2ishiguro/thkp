@@ -78,7 +78,7 @@ if (window.msCrypto) {
 		digest: function(algo, data) {
 			if (algo == 'SHA-1') {
 				return new Promise(function(resolve, reject) {
-					resolve(window.sha1.arrayBuffer(data));
+					resolve(sha1(data));
 				});
 			}
 			else
@@ -91,11 +91,10 @@ else {
 	var digest_org = _wc.digest;
 	_wc.digest = function(algo, data) {
 		return digest_org.call(_wc, algo, data)
-			.then(function(h) {return h;})
 			.catch(function(e) {
 				if (algo == 'SHA-1') {
 					// fall back to a JS version of SHA1 for Edge
-					return window.sha1.arrayBuffer(data);
+					return sha1(data);
 				}
 				throw e;
 			})
@@ -103,7 +102,6 @@ else {
 	var wc = {
 		_call: function(f, args) {
 			return _wc[f].apply(_wc, args)
-				.then(function(res) {return res;})
 				.catch(function(e) {console.log(f + " caused error:", e); throw e;});
 		},
 		generateKey: function(algo, extractable, usage) {
@@ -400,7 +398,6 @@ function generateKey(tag)
 	var usage2 = ['encrypt', 'decrypt'];
 
 	return _generateKey(tag, opt, usage)
-//		.then(function (key) {return key;})
 		.catch(function(e) {
 			// fallback for Safari 9
 			return _generateKey(tag, opt2, usage2)
