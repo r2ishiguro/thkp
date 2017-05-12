@@ -56,24 +56,23 @@ if (window.msCrypto) {
 	var wc = {
 		_call: function(f, args) {
 			return new Promise(function(resolve, reject) {
-				op = _wc[f].apply(_wc, args);
+				op = f.apply(_wc, args);
 				op.oncomplete = function(ev) {
 					resolve(ev.target.result);
 				};
 				op.onerror = function(ev) {
-//					console.log("msCrypto." + f + " failed", ev);
 					reject();
 				};
 			});
 		},
 		generateKey: function(algo, extractable, usage) {
-			return this._call("generateKey", arguments);
+			return this._call(_wc.generateKey, arguments);
 		},
 		exportKey: function(algo, key) {
-			return this._call("exportKey", arguments);
+			return this._call(_wc.exportKey, arguments);
 		},
 		sign: function(algo, priv, target) {
-			return this._call("sign", arguments);
+			return this._call(_wc.sign, arguments);
 		},
 		digest: function(algo, data) {
 			if (algo == 'SHA-1') {
@@ -82,15 +81,15 @@ if (window.msCrypto) {
 				});
 			}
 			else
-				return this._call("digest", arguments);
+				return this._call(_wc.digest, arguments);
 		},
 	};
 }
 else {
-	var _wc = window.crypto.webkitSubtle || window.crypto.subtle;
-	var digest_org = _wc.digest;
-	_wc.digest = function(algo, data) {
-		return digest_org.call(_wc, algo, data)
+	var wc = window.crypto.webkitSubtle || window.crypto.subtle;
+	var digest_org = wc.digest;
+	wc.digest = function(algo, data) {
+		return digest_org.call(wc, algo, data)
 			.catch(function(e) {
 				if (algo == 'SHA-1') {
 					// fall back to a JS version of SHA1 for Edge
@@ -98,27 +97,6 @@ else {
 				}
 				throw e;
 			})
-	};
-	var wc = {
-		_call: function(f, args) {
-			return _wc[f].apply(_wc, args)
-				.catch(function(e) {console.log(f + " caused error:", e); throw e;});
-		},
-		generateKey: function(algo, extractable, usage) {
-			return this._call("generateKey", arguments);
-		},
-		exportKey: function(algo, key) {
-			return this._call("exportKey", arguments);
-		},
-		sign: function(algo, priv, target) {
-			return this._call("sign", arguments);
-		},
-		digest: function(algo, data) {
-			return this._call("digest", arguments);
-		},
-		importKey: function(algo, data, opt, exportable, usage) {
-			return this._call("importKey", arguments);
-		},
 	};
 }
 
@@ -334,7 +312,7 @@ function sign(key, stype, data)
 	var sigpkt = p.flush();
 	// no unhashed subpackets
 	p.putn(0, 2);
-	// 5.2.3 "The concatenation of the data being signed and the signature data from the version number through the hashed subpacket data (inclusive) is hashed
+	// 5.2.3 "The concatenation of the data being signed and the signature data from the version number through the hashed subpacket data (inclusive) is hashed"
 	var ss = new Stream();
 	data.forEach(function(d) {ss.puts(tbsform(d));});
 	ss.puts(sigpkt);
