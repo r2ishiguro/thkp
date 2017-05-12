@@ -2,21 +2,10 @@
 <html>
 <head>
 <title>pgp keygen</title>
+<script src="npo.js"></script>
+<script src="sha1.js"></script>
 <script src="gen.js"></script>
-<script>
-  function b64(b) {
-	let a = new Uint8Array(b);
-	let str = [];
-	for (let i = 0; i < a.length; i++)
-		str[i] = String.fromCharCode(a[i]);
-	return btoa(str.join(''))
-  }
-  generateKey("foo <foo@example.com>")
-  .then(keys => {
-	console.log(b64(keys.pub));
-	console.log(b64(keys.priv));
-  })
-  .catch(e => console.log("generateKey: error:", e))
+<script src="gen_test.js"></script>
 </script>
 </head>
 </html>
